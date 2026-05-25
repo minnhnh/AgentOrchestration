@@ -1,12 +1,14 @@
 """API route definitions."""
 
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 
 from src.agent import AgentRegistry, AgentStatus
+from src.orchestrator.workflow import WorkflowManager, Workflow, WorkflowStep
 
 router = APIRouter()
 registry = AgentRegistry()
+workflow_manager = WorkflowManager()
 
 
 @router.get("/agents")
@@ -53,6 +55,22 @@ async def stop_agent(agent_id: str):
 @router.get("/agents/count")
 async def agent_count():
     return {"count": registry.count()}
+
+
+@router.post("/workflows")
+async def create_workflow(name: str, description: str = "", parameters: Optional[List[Dict]] = None):
+    # Reject duplicate parameter aliases - workflow API inputs
+    if parameters:
+        aliases = set()
+        for param in parameters:
+            alias = param.get("alias")
+            if alias:
+                if alias in aliases:
+                    raise HTTPException(status_code=400, detail=f"Duplicate parameter alias detected: {alias}")
+                aliases.add(alias)
+    
+    workflow = workflow_manager.create_workflow(name, description)
+    return {"workflow_id": workflow.id, "status": "created"}
 
 # 2019-03-18T11:10:18 update
 
